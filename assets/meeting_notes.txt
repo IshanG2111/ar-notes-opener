@@ -1,0 +1,15 @@
+Meeting Notes - July 31, 2025
+=====================================
+
+Attendees: John, Sarah, Mike
+Topic: AR Notes App Development
+
+Key Points:
+- Implemented hand gesture recognition
+- Added interactive file selection
+- Next: Voice integration testing
+
+Action Items:
+- Test gesture accuracy (John)
+- Create demo files (Sarah)
+- Document features (Mike)

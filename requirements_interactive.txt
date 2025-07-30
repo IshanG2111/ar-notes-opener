@@ -1,0 +1,26 @@
+# Requirements for AR Notes Interactive Gesture System
+# Updated for sequential selection workflow
+
+# Computer Vision and Hand Tracking
+opencv-python>=4.8.0
+mediapipe>=0.10.0
+
+# Voice Recognition and Text-to-Speech
+speechrecognition>=3.10.0
+pyttsx3>=2.90
+pyaudio>=0.2.11
+
+# Web Framework (for API endpoints)
+flask>=2.3.0
+
+# Optional: Better PDF handling
+PyPDF2>=3.0.0
+
+# Optional: Image processing
+Pillow>=10.0.0
+
+# Optional: Better audio handling
+pygame>=2.5.0
+
+# Development and Testing
+pytest>=7.4.0
