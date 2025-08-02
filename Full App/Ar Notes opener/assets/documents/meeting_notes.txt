@@ -1,4 +1,0 @@
-# Meeting Notes
-- Discuss gesture-controlled AR Notes
-- Setup assets
-- Test system

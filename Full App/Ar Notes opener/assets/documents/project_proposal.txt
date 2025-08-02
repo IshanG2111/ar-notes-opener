@@ -1,2 +1,0 @@
-# Project Proposal
-Build a natural hand gesture controlled AR notes app
