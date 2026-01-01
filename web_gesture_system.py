@@ -7,14 +7,46 @@ import numpy as np
 
 class WebGestureSystem:
     def __init__(self):
-        self.mp_hands = mp.solutions.hands
-        self.hands = self.mp_hands.Hands(
-            static_image_mode=False,
-            max_num_hands=1,
-            min_detection_confidence=0.7,
-            min_tracking_confidence=0.5
-        )
-        self.mp_drawing = mp.solutions.drawing_utils
+        # Prefer classic Solutions API if available
+        self.use_tasks_api = False
+        try:
+            self.mp_hands = mp.solutions.hands
+            self.hands = self.mp_hands.Hands(
+                static_image_mode=False,
+                max_num_hands=1,
+                min_detection_confidence=0.7,
+                min_tracking_confidence=0.5
+            )
+            self.mp_drawing = mp.solutions.drawing_utils
+        except Exception:
+            # Fall back to Tasks API
+            self.use_tasks_api = True
+            try:
+                from mediapipe.tasks.python import vision as mp_vision
+                from mediapipe.tasks.python.core import base_options as mp_base_options
+                from mediapipe.tasks.python.vision.core import image as mp_image_lib
+                self._mp_vision = mp_vision
+                self._mp_image_lib = mp_image_lib
+                env_path = os.environ.get('MEDIAPIPE_HAND_MODEL')
+                default_path = os.path.join('assets', 'models', 'hand_landmarker.task')
+                # Prefer a valid env var path, otherwise fall back to bundled model
+                model_path = env_path if (env_path and os.path.exists(env_path)) else default_path
+                if os.path.exists(model_path):
+                    options = mp_vision.HandLandmarkerOptions(
+                        base_options=mp_base_options.BaseOptions(model_asset_path=model_path),
+                        running_mode=mp_vision.RunningMode.IMAGE,
+                        num_hands=1,
+                        min_hand_detection_confidence=0.7,
+                        min_tracking_confidence=0.5,
+                    )
+                    self.hand_landmarker = mp_vision.HandLandmarker.create_from_options(options)
+                else:
+                    self.hand_landmarker = None
+                    print(f"MediaPipe Tasks API detected but no model found at '{model_path}'.")
+                    print("Set MEDIAPIPE_HAND_MODEL or place the model at assets/models/hand_landmarker.task")
+            except Exception as e:
+                self.hand_landmarker = None
+                print('Failed to initialize MediaPipe Tasks hand landmarker:', e)
 
         self.assets_dir = "assets"
         self.categories = {
@@ -220,21 +252,35 @@ class WebGestureSystem:
         """
         frame = cv2.flip(frame, 1)  # mirror for natural interaction
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        results = self.hands.process(rgb_frame)
-
         finger_count = 0
         thumbs_up = False
         fist = False
 
-        if results.multi_hand_landmarks:
-            # Considering only first hand detected
-            hand_landmarks = results.multi_hand_landmarks[0]
-
-            self.mp_drawing.draw_landmarks(frame, hand_landmarks, self.mp_hands.HAND_CONNECTIONS)
-
-            finger_count = self.count_fingers(hand_landmarks.landmark)
-            thumbs_up = self.detect_thumbs_up(hand_landmarks.landmark)
-            fist = self.detect_fist(hand_landmarks.landmark)
+        if not self.use_tasks_api:
+            results = self.hands.process(rgb_frame)
+            if results.multi_hand_landmarks:
+                # Considering only first hand detected
+                hand_landmarks = results.multi_hand_landmarks[0]
+                self.mp_drawing.draw_landmarks(frame, hand_landmarks, self.mp_hands.HAND_CONNECTIONS)
+                finger_count = self.count_fingers(hand_landmarks.landmark)
+                thumbs_up = self.detect_thumbs_up(hand_landmarks.landmark)
+                fist = self.detect_fist(hand_landmarks.landmark)
+        else:
+            if self.hand_landmarker is not None:
+                mp_img = self._mp_image_lib.Image(self._mp_image_lib.ImageFormat.SRGB, rgb_frame)
+                try:
+                    res = self.hand_landmarker.detect(mp_img)
+                except Exception:
+                    res = None
+                if res and res.hand_landmarks:
+                    landmarks = res.hand_landmarks[0]
+                    h, w = frame.shape[:2]
+                    for lm in landmarks:
+                        x, y = int(lm.x * w), int(lm.y * h)
+                        cv2.circle(frame, (x, y), 4, (0, 255, 0), -1)
+                    finger_count = self.count_fingers(landmarks)
+                    thumbs_up = self.detect_thumbs_up(landmarks)
+                    fist = self.detect_fist(landmarks)
 
         # Stability check
         if finger_count == self.last_detected_fingers:

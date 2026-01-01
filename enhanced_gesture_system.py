@@ -38,7 +38,9 @@ class EnhancedGestureSystem:
                 self._mp_vision = mp_vision
                 self._mp_image_lib = mp_image_lib
                 # resolve model path
-                model_path = os.environ.get('MEDIAPIPE_HAND_MODEL') or os.path.join('assets', 'models', 'hand_landmarker.task')
+                env_path = os.environ.get('MEDIAPIPE_HAND_MODEL')
+                default_path = os.path.join('assets', 'models', 'hand_landmarker.task')
+                model_path = env_path if (env_path and os.path.exists(env_path)) else default_path
                 if os.path.exists(model_path):
                     options = mp_vision.HandLandmarkerOptions(
                         base_options=mp_base_options.BaseOptions(model_asset_path=model_path),

@@ -9,7 +9,6 @@ import cv2
 import numpy as np
 import base64
 import json
-from web_gesture_system import WebGestureSystem
 
 app = FastAPI(title="AR Notes Web", description="Web-based Augmented Reality Notes System", version="1.0.0")
 
@@ -25,6 +24,19 @@ async def get(request: Request):
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
+
+    # Lazily import the WebGestureSystem so the server can start without mediapipe
+    try:
+        from web_gesture_system import WebGestureSystem
+    except Exception as e:
+        # If import fails (e.g., mediapipe not installed), notify client and close
+        print(f"Failed to import WebGestureSystem: {e}")
+        await websocket.send_json({"error": "Server missing optional dependency for gesture processing."})
+        try:
+            await websocket.close()
+        except:
+            pass
+        return
 
     # Create a new gesture system instance for this session
     gesture_system = WebGestureSystem()
