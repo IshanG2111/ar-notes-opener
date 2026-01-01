@@ -1,0 +1,302 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AR Notes - Web Interface</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1e1e1e;
+            color: #f5f5f5;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+        }
+        header {
+            width: 100%;
+            background-color: #2d2d2d;
+            padding: 1rem;
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+        }
+        h1 {
+            margin: 0;
+            color: #ff5722;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            flex-grow: 1;
+            width: 100%;
+            max-width: 1280px;
+        }
+        #video-container {
+            position: relative;
+            width: 960px;
+            height: 540px;
+            background-color: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            margin-bottom: 20px;
+        }
+        #loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            color: white;
+            z-index: 10;
+            display: none;
+        }
+        .spinner {
+            border: 4px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top: 4px solid #ff5722;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin-bottom: 10px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        #webcam {
+            display: none; /* Hide raw webcam feed */
+        }
+        #output-canvas {
+            width: 100%;
+            height: 100%;
+        }
+        .controls {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #ff5722;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #e64a19;
+        }
+        button:disabled {
+            background-color: #555;
+            cursor: not-allowed;
+        }
+        .status {
+            margin-top: 10px;
+            color: #aaa;
+        }
+        .instructions {
+            background-color: #2d2d2d;
+            padding: 20px;
+            border-radius: 8px;
+            max-width: 800px;
+            margin: 20px;
+        }
+        .instructions h3 {
+            color: #ff5722;
+            margin-top: 0;
+        }
+        .instructions ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        .instructions li {
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>AR Notes Web</h1>
+    </header>
+
+    <div class="container">
+        <div class="controls">
+            <button id="start-btn">Start Camera</button>
+            <button id="stop-btn" disabled>Stop Camera</button>
+        </div>
+
+        <div id="video-container">
+            <div id="loading-overlay">
+                <div class="spinner"></div>
+                <div id="loading-text">Starting camera...</div>
+            </div>
+            <video id="webcam" autoplay playsinline width="960" height="540"></video>
+            <img id="output-image" width="960" height="540" />
+        </div>
+
+        <div class="status" id="status">Ready</div>
+
+        <div class="instructions">
+            <h3>How to Use</h3>
+            <ul>
+                <li><strong>1 Finger:</strong> Documents | <strong>2 Fingers:</strong> Images | <strong>3 Fingers:</strong> Videos</li>
+                <li><strong>4 Fingers:</strong> Audio | <strong>5 Fingers:</strong> Code</li>
+                <li><strong>Thumbs Up:</strong> Open Selected File | <strong>Fist:</strong> Go Back / Cancel</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        const video = document.getElementById('webcam');
+        const outputImage = document.getElementById('output-image');
+        const startBtn = document.getElementById('start-btn');
+        const stopBtn = document.getElementById('stop-btn');
+        const statusDiv = document.getElementById('status');
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const loadingText = document.getElementById('loading-text');
+
+        let ws = null;
+        let stream = null;
+        let animationId = null;
+        let isStreaming = false;
+
+        // Canvas for resizing/capturing frame
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+
+        startBtn.addEventListener('click', startCamera);
+        stopBtn.addEventListener('click', stopCamera);
+
+        async function startCamera() {
+            try {
+                loadingOverlay.style.display = 'flex';
+                loadingText.innerText = 'Starting camera...';
+
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    }
+                });
+                video.srcObject = stream;
+                await video.play();
+
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+
+                loadingText.innerText = 'Connecting to server...';
+                connectWebSocket();
+
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+                statusDiv.innerText = "Camera active. Connecting to server...";
+
+            } catch (err) {
+                loadingOverlay.style.display = 'none';
+                console.error("Error accessing webcam:", err);
+                statusDiv.innerText = "Error accessing webcam: " + err.message;
+            }
+        }
+
+        function stopCamera() {
+            isStreaming = false;
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+            }
+
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                video.srcObject = null;
+            }
+
+            if (ws) {
+                ws.close();
+            }
+
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+            statusDiv.innerText = "Stopped.";
+            outputImage.src = "";
+        }
+
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+
+            ws.onopen = () => {
+                statusDiv.innerText = "Connected. Processing gestures...";
+                loadingOverlay.style.display = 'none';
+                isStreaming = true;
+                sendFrame();
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+
+                if (data.image) {
+                    outputImage.src = data.image;
+                }
+
+                if (data.action) {
+                    handleAction(data.action);
+                }
+
+                // Send next frame when response received
+                if (isStreaming) {
+                   requestAnimationFrame(sendFrame);
+                }
+            };
+
+            ws.onerror = (err) => {
+                console.error("WebSocket error:", err);
+                statusDiv.innerText = "Connection error.";
+                isStreaming = false;
+            };
+
+            ws.onclose = () => {
+                if (isStreaming) {
+                    statusDiv.innerText = "Connection closed. Reconnecting...";
+                    setTimeout(connectWebSocket, 1000);
+                }
+            };
+        }
+
+        function sendFrame() {
+            if (!isStreaming || ws.readyState !== WebSocket.OPEN) return;
+
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const dataURL = canvas.toDataURL('image/jpeg', 0.5); // Quality 0.5 to reduce bandwidth
+            ws.send(dataURL);
+        }
+
+        function handleAction(action) {
+            console.log("Action received:", action);
+            if (action.type === 'open_file') {
+                const url = `/assets/${action.folder}/${action.filename}`;
+                // Open in new tab
+                window.open(url, '_blank');
+
+                // Show notification
+                statusDiv.innerText = `Opening ${action.filename}...`;
+                setTimeout(() => {
+                    statusDiv.innerText = "Processing gestures...";
+                }, 3000);
+            }
+        }
+    </script>
+</body>
+</html>
