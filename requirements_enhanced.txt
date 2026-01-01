@@ -3,7 +3,7 @@
 
 # Core Computer Vision & Hand Tracking
 opencv-python>=4.8.0
-mediapipe>=0.10.0
+mediapipe==0.8.10
 numpy>=1.21.0
 
 # Audio & Sound

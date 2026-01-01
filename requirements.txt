@@ -3,6 +3,6 @@ uvicorn
 python-multipart
 jinja2
 opencv-python-headless
-mediapipe==0.10.14
+mediapipe==0.8.10
 numpy
 websockets
