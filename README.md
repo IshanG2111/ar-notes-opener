@@ -61,6 +61,32 @@ assets/
 python enhanced_gesture_system.py
 ```
 
+## 🌐 Web-Based Interface
+
+We now offer a professional web-based interface that allows you to access the AR Notes system via your browser.
+
+### **Features**
+- **Modern Dark UI**: Professional, clean interface with status indicators.
+- **Real-time Streaming**: Low-latency video feedback via WebSockets.
+- **Browser Integration**: Opens files directly in new browser tabs.
+- **No Client Installation**: Works on any device with a modern browser (server runs on host).
+
+### **How to Run**
+
+1.  **Install Web Dependencies**
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+2.  **Start the Server**
+    ```bash
+    python main.py
+    ```
+
+3.  **Access the Interface**
+    - Open your browser and navigate to: `http://localhost:8000`
+    - Click **Start Camera** to begin.
+
 ## 🖐️ How to Use Gestures
 
 ### **Step 1: Select File Category**
